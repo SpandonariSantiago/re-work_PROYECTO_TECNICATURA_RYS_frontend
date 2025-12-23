@@ -1,52 +1,66 @@
 import { useEffect, useState } from 'react'
 import './App.css'
+import FormularioProducto from './components/FormularioProducto' // <--- Importamos
 
 function App() {
   const [productos, setProductos] = useState([])
   const [cargando, setCargando] = useState(true)
 
-  // Esta función se ejecuta automáticamente al abrir la página
-  useEffect(() => {
+  // Extraemos la lógica de carga a una función para poder reusarla
+  const cargarProductos = () => {
+    setCargando(true) // Opcional: mostrar carga rápida
     fetch('http://localhost/api/products')
       .then(response => response.json())
       .then(data => {
-        console.log("Datos recibidos:", data); // Para depurar en consola
         setProductos(data)
         setCargando(false)
       })
       .catch(error => {
-        console.error("Error conectando con Laravel:", error);
+        console.error("Error:", error);
         setCargando(false)
       })
-  }, []) // El array vacío [] significa: "Ejecuta esto solo una vez al inicio"
-
-  if (cargando) {
-    return <h1>Cargando tienda...</h1>
   }
+
+  // Carga inicial
+  useEffect(() => {
+    cargarProductos()
+  }, [])
 
   return (
     <div className="contenedor">
-      <h1>Mi Tienda de Mangas</h1>
-      <div className="grilla-productos">
-        {productos.map((producto) => (
-          <div key={producto.id} className="tarjeta">
-            {/* OJO: Aquí construimos la URL de la imagen */}
-            {producto.image_url ? (
-               <img 
-                 src={`http://localhost/storage/${producto.image_url}`} 
-                 alt={producto.name} 
-                 className="imagen-producto"
-               />
-            ) : (
-              <div className="sin-imagen">Sin Foto</div>
-            )}
-            
-            <h2>{producto.name}</h2>
-            <p className="precio">${producto.price}</p>
-            <p>Stock: {producto.stock}</p>
-          </div>
-        ))}
-      </div>
+      <h1>Panel de Administración TMO</h1>
+      
+      {/* Aquí ponemos el formulario.
+          Le pasamos la función cargarProductos como prop.
+          Así, cuando el formulario termine, puede llamar a esta función y actualizar la lista.
+      */}
+      <FormularioProducto alGuardar={cargarProductos} />
+
+      <hr style={{ margin: '30px 0' }} />
+
+      <h2>Inventario Actual</h2>
+
+      {cargando ? <p>Cargando...</p> : (
+        <div className="grilla-productos">
+          {productos.map((producto) => (
+            <div key={producto.id} className="tarjeta">
+              {producto.image_url ? (
+                 <img 
+                   src={`http://localhost/storage/${producto.image_url}`} 
+                   alt={producto.name} 
+                   className="imagen-producto"
+                 />
+              ) : (
+                <div className="sin-imagen">Sin Foto</div>
+              )}
+              
+              <h3>{producto.name}</h3>
+              <p className="precio">${producto.price}</p>
+              <p>Stock: {producto.stock}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

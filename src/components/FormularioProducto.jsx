@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../context/AuthProvider'; // <--- IMPORTAMOS EL HOOK
 
 function FormularioProducto({ alGuardar, productoAEditar, alCancelar }) {
-    // Estados
+    const { token } = useAuth(); // <--- SACAMOS EL TOKEN
+
     const [name, setName] = useState('');
     const [price, setPrice] = useState('');
     const [stock, setStock] = useState('');
@@ -9,10 +11,8 @@ function FormularioProducto({ alGuardar, productoAEditar, alCancelar }) {
     const [mensaje, setMensaje] = useState('');
     const [deshabilitado, setDeshabilitado] = useState(false);
     
-    // BLOQUEO FÍSICO: useRef no depende del renderizado de React. Es instantáneo.
     const isSubmitting = useRef(false);
 
-    // Rellenar si estamos editando
     useEffect(() => {
         if (productoAEditar) {
             setName(productoAEditar.name);
@@ -30,24 +30,18 @@ function FormularioProducto({ alGuardar, productoAEditar, alCancelar }) {
         setStock('');
         setImage(null);
         setMensaje('');
-        // Limpiamos el input file a la fuerza
         const fileInput = document.getElementById('fileInput');
         if(fileInput) fileInput.value = "";
     }
 
-    // Esta función ya no recibe "e" porque no hay evento de formulario
     const handleGuardarClick = async () => {
-        
-        // Validación manual rápida
         if (!name || !price) {
             setMensaje("⚠️ Nombre y Precio son obligatorios");
             return;
         }
 
-        // SI YA ESTAMOS ENVIANDO, PARAMOS AQUÍ (El muro contra el doble submit)
         if (isSubmitting.current) return;
         
-        // Activamos bloqueo
         isSubmitting.current = true;
         setDeshabilitado(true);
         setMensaje('Procesando...');
@@ -72,6 +66,11 @@ function FormularioProducto({ alGuardar, productoAEditar, alCancelar }) {
         try {
             const respuesta = await fetch(url, {
                 method: method,
+                headers: {
+                    // 3. AQUÍ VA EL TOKEN
+                    // NO pongas Content-Type, el FormData se encarga.
+                    'Authorization': `Bearer ${token}` 
+                },
                 body: datos 
             });
 
@@ -79,7 +78,6 @@ function FormularioProducto({ alGuardar, productoAEditar, alCancelar }) {
 
             if (respuesta.ok) {
                 setMensaje(productoAEditar ? '✅ Actualizado' : '✅ Creado');
-                // Limpiamos antes de avisar
                 limpiarInputs();
                 alGuardar(); 
             } else {
@@ -89,7 +87,6 @@ function FormularioProducto({ alGuardar, productoAEditar, alCancelar }) {
             console.error(error);
             setMensaje('❌ Error de conexión');
         } finally {
-            // Liberamos el bloqueo después de un pequeño respiro
             setTimeout(() => {
                 isSubmitting.current = false;
                 setDeshabilitado(false);
@@ -101,9 +98,7 @@ function FormularioProducto({ alGuardar, productoAEditar, alCancelar }) {
         <div style={{ border: '2px solid #2c3e50', padding: '20px', borderRadius: '8px', marginBottom: '20px', backgroundColor: '#f8f9fa' }}>
             <h2>{productoAEditar ? `Editando: ${productoAEditar.name}` : 'Agregar Nuevo Manga'}</h2>
             
-            {/* YA NO HAY ETIQUETA <FORM> AQUÍ */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '400px', margin: '0 auto' }}>
-                
                 <label style={{textAlign:'left', fontSize:'0.8em', fontWeight:'bold'}}>Nombre</label>
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} disabled={deshabilitado} />
                 
@@ -119,7 +114,6 @@ function FormularioProducto({ alGuardar, productoAEditar, alCancelar }) {
                     <input id="fileInput" type="file" accept="image/*" onChange={(e) => setImage(e.target.files[0])} disabled={deshabilitado} />
                 </div>
 
-                {/* BOTÓN TYPE="BUTTON" (Para que el navegador no intente nada raro) */}
                 <button 
                     type="button" 
                     onClick={handleGuardarClick}

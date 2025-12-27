@@ -1,15 +1,29 @@
 import { useEffect, useState } from 'react'
 import './App.css'
 import FormularioProducto from './components/FormularioProducto'
+import Login from './components/Login'
+import { useAuth } from './context/AuthProvider'
 
+// ERROR CORREGIDO: NUNCA pongas 'async' aquí.
 function App() {
+  const { token, logout } = useAuth(); // Sacamos el token del contexto
+  
+  // ----------------------------------------------------
+  // 1. EL GUARDIÁN DE SEGURIDAD
+  // Si no hay token, cortamos aquí y mostramos el Login.
+  // ----------------------------------------------------
+  if (!token) {
+      return <Login />;
+  }
+
+  // --- SI LLEGAMOS AQUÍ, ES QUE ESTÁS LOGUEADO ---
+
   const [productos, setProductos] = useState([])
   const [cargando, setCargando] = useState(true)
   const [productoAEditar, setProductoAEditar] = useState(null)
-  
-  // SOLUCIÓN NUCLEAR: Control de Versión para reiniciar componentes
   const [versionFormulario, setVersionFormulario] = useState(0);
 
+  // Función para cargar (Pública, no necesita token para leer)
   const cargarProductos = () => {
     fetch('http://localhost/api/products')
       .then(response => response.json())
@@ -27,11 +41,9 @@ function App() {
     cargarProductos()
   }, [])
 
-  // Callback cuando el formulario termina con éxito
   const handleGuardarExitoso = () => {
     cargarProductos();
     setProductoAEditar(null);
-    // Destruir y recrear el formulario para limpiar cualquier fantasma
     setVersionFormulario(prev => prev + 1);
   }
 
@@ -40,6 +52,7 @@ function App() {
     setVersionFormulario(prev => prev + 1);
   }
 
+  // AQUÍ SÍ VA EL ASYNC (En la función interna)
   const eliminarProducto = async (id) => {
     if (!window.confirm('¿Seguro que quieres eliminar este manga?')) {
       return;
@@ -48,20 +61,27 @@ function App() {
     try {
       const respuesta = await fetch(`http://localhost/api/products/${id}`, {
         method: 'DELETE',
+        headers: {
+            // 2. INYECCIÓN DEL TOKEN PARA BORRAR
+            'Authorization': `Bearer ${token}` 
+        }
       });
 
       if (respuesta.ok) {
         alert('Producto eliminado');
-        
-        // Si borramos lo que estábamos editando, limpiamos
         if (productoAEditar && productoAEditar.id == id) {
             setProductoAEditar(null);
             setVersionFormulario(prev => prev + 1);
         }
-
         cargarProductos();
       } else {
-        alert('Error al eliminar');
+        // Si el token expiró, Laravel devolverá 401
+        if (respuesta.status === 401) {
+            alert("Tu sesión expiró. Logueate de nuevo.");
+            logout(); // Sacamos al usuario
+            return;
+        }
+        alert('Error al eliminar (Tal vez no tienes permisos)');
       }
     } catch (error) {
       console.error(error);
@@ -71,9 +91,13 @@ function App() {
 
   return (
     <div className="contenedor">
-      <h1>Panel de Administración TMO</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h1>Panel de Administración TMO</h1>
+          <button onClick={logout} style={{ backgroundColor: '#333', color: 'white', padding: '8px 15px', border:'none', cursor:'pointer' }}>
+              Cerrar Sesión
+          </button>
+      </div>
       
-      {/* KEY={versionFormulario} asegura que el componente nazca limpio siempre */}
       <FormularioProducto 
         key={versionFormulario} 
         alGuardar={handleGuardarExitoso}
@@ -114,7 +138,6 @@ function App() {
                 <button 
                     onClick={() => {
                         setProductoAEditar(producto);
-                        // Subir y reiniciar formulario para cargar datos limpios
                         setVersionFormulario(prev => prev + 1); 
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}

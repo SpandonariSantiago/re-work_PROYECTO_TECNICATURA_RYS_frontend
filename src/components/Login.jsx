@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthProvider'; // Importamos nuestro cerebro
+import { useNavigate } from 'react-router-dom';
 
 function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const { login } = useAuth(); // Sacamos la función login del contexto
+    const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -23,6 +25,7 @@ function Login() {
             if (respuesta.ok) {
                 // Si Laravel dice OK, guardamos el token usando el Context
                 login(data.access_token, data.user);
+                navigate('/admin');
             } else {
                 setError(data.message || 'Credenciales incorrectas');
             }
